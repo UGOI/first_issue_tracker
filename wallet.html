@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USER REGISTER / LOGIN</title>
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"
+        integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/moralis/dist/moralis.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+        integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+        crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+        integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <!-- This <style> element below is not required -->
+    <style>
+        pre {
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .footer {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 60px;
+            line-height: 60px;
+            background-color: #f5f5f5;
+        }
+    </style>
+    <!-- and can be removed -->
+</head>
+
+<body>
+    <div class="jumbotron jumbotron-fluid">
+        <div class="container">
+            <h1 class="display-4">USER REGISTER / LOGIN</h1>
+            <h2 id="logged-in-user" class="h5"></h2>
+            <button id="logout_button">Logout</button>
+            <button id="login_button">Sign in with MetaMask</button>
+            <div id="login_buttons" class="my-5">
+                <label for="username">Username</label>
+                <input type="text" name="username" id="username">
+                <label for="password">Password</label>
+                <input type="password" name="password" id="password">
+                <button id="login_button2">Login</button>
+                <button id="register_button">Register</button>
+            </div>
+        </div>
+    </div>
+
+    
+    
+
+    <div class="container">
+
+        <h2 id="issues" class="h5">Issues</h2>
+
+
+        <div class="my-4" id="content">
+            <div class="h6">
+                <textarea name="new-comment" id="new-comment" cols="30" rows="10"></textarea>
+            </div>
+
+            <div class="flex">
+                <button class="btn btn-primary btn-large" onclick="postComment(currentGroup)">Comment</button>
+                <button class="btn btn-danger btn-large" onclick="deleteAllObjects('Note')">Delete All</button>
+                <button class="btn btn-primary btn-large" onclick="setCurrentGroup('Group1');createNewRole('Group1', true, true); addUsersToRole('Group1'); renderComments();">Group1</button>
+                <button class="btn btn-primary btn-large" onclick="setCurrentGroup('Group2');createNewRole('Group2', true, true); addUsersToRole('Group2'); renderComments();">Group2</button>
+            </div>
+
+            <div id="comment-section" class="my-5">
+                <p>Comments will appear here</p>
+            </div>
+            <div>
+
+            </div>
+        </div>
+        <div>
+
+
+
+
+
+    <!-- These are the functions, which should sit inside an external .js file -->
+    <script>
+
+        ///Global Variable
+        var currentGroup = 0;
+
+
+        // (async function () {
+        //     const serverUrl = "SERVER_URL"
+        //     const appId = "APP_ID"
+        //     await Moralis.start({ serverUrl, appId })
+        // })()
+
+
+        // Initialise server
+        
+        const serverUrl = "https://hb8ozxaq1hib.usemoralis.com:2053/server"
+        const appId = "fcZFvcJa1HnDajxbozY09XDIv2MqaJ8FB4kd4aAm"
+        Moralis.start({ serverUrl, appId })
+
+
+        async function setCurrentGroup(Group) {
+            currentGroup = Group;
+
+        }
+
+
+
+        async function postComment(Group) {
+
+            if(Group == 0){return alert("ERROR: you have not selected a group")}
+
+
+            let Note = Moralis.Object.extend('Note')
+            let newNote = new Note()
+
+            let noteUser = Moralis.User.current()
+            let commentContent = document.getElementById('new-comment').value
+            if(commentContent === ""){return alert("ERROR: empty note")}
+
+            newNote.set('content', commentContent)
+            newNote.set('noteUser', noteUser)
+            newNote.set('writer', noteUser.get('username'));
+            newNote.set('status', 'open');
+            newNote.set('group', Group);
+            
+            const postACL = new Moralis.ACL();
+            postACL.setRoleWriteAccess(Group, true);
+            postACL.setRoleReadAccess(Group, true);
+            newNote.setACL(postACL);  
+
+            await newNote.save()
+            document.getElementById('new-comment').value = "";
+            renderComments();
+        }
+
+
+        // Delets object by objectID in moralis database
+        async function deleteObject(ObjectId) {
+
+            const Notes = Moralis.Object.extend("Note");
+            const query = new Moralis.Query(Notes);
+            query.equalTo("objectId", ObjectId);
+            const results = await query.find();
+            // Do something with the returned Moralis.Object values
+            for (let i = 0; i < results.length; i++) {
+                const object = results[i];
+
+                //Delete Object
+                object.destroy().then(
+                    (object) => {
+                        // The object was deleted from the Moralis Cloud.
+                        renderComments();
+                        console.log(object.id + " - " + "was deleted sucessfully");
+
+                        },
+                        (error) => {
+                            // The delete failed.
+                            // error is a Moralis.Error with an error code and message.
+                            alert("The delete failed.")
+                        }
+                );
+            }
+
+
+        }
+
+    // Delets object by objectID in moralis database
+    async function deleteAllObjects(ClassName) {
+        
+        currentUser = Moralis.User.current();
+
+        const Notes = Moralis.Object.extend(ClassName);
+        const query = new Moralis.Query(Notes);
+        query.equalTo("objectId", currentUser.id.toLocaleString);
+        const results = await query.find();
+        console.log("Successfully retrieved " + results.length + " Notes.");
+        // Do something with the returned Moralis.Object values
+        for (let i = 0; i < results.length; i++) {
+        const object = results[i];
+        //Delete Object
+        object.destroy().then(
+            (object) => {
+                // The object was deleted from the Moralis Cloud.
+                renderComments();
+                console.log(object.id + " - " + "was deleted sucessfully");
+
+            },
+            (error) => {
+                // The delete failed.
+                // error is a Moralis.Error with an error code and message.
+                alert("The delete failed.")
+            }
+            );
+        }
+
+
+        }
+
+
+
+       // You can call this function to create a new role
+        async function addUsersToRole(_name) {
+            const params = { "name": _name };
+            
+            const result = await Moralis.Cloud.run("addUsersToRole", params);
+
+        }
+
+        // You can call this function to create a new role
+        async function createNewRole(_name, PRA, PWA) {
+            const params = { "name": _name, "PRA":PRA, "PWA":PWA };
+            
+            const result = await Moralis.Cloud.run("createNewRole", params);
+        }
+
+
+        async function runCode() {
+            let user = Moralis.User.current();
+
+            if (user) {
+                let Note = Moralis.Object.extend('Note')
+            }
+        }
+
+        async function renderComments() {
+            let commentSection = document.getElementById('comment-section')
+            commentSection.innerText = "";
+            let result;
+            let statuscolor;
+
+            try {
+                const query = new Moralis.Query("Note");
+                query.descending("createdAt")
+                query.equalTo("group", currentGroup);
+                result = await query.find();
+                // console.log(result)
+            } catch (error) {
+                commentSection.innerHTML = `
+                            <p>No comments, you may not have permission to view them</p>
+                            `
+                return;
+            }
+            if (result) {
+
+                for (let i = 0; i < result.length; i++) {
+                    let _user = result[i].attributes.writer;
+                    // console.log(result[i].id)
+                    const content = document.createElement("div")
+
+                    if(result[i].get('status')=="open"){statuscolor = "success"}
+                    else {statuscolor = "warning"}
+
+                    
+                    content.innerHTML = `
+                    <div style="width: 100%; overflow: hidden;">
+                    <div contenteditable="false" id="${'edit'+i}" style="width: 600px; float: left;"> <h6>${result[i].get('content')}</h6> </div>
+                    <div style="width: 600px; float: left;"> <p>(Posted by ${_user}: ${result[i].get('createdAt').toLocaleString()})</p> </div>
+                    <div style="width: 600px; float: left;"> <button class="btn btn-success btn-sm">${result[i].get('status')}</button> </div>
+                    
+                    <div style="margin-left: 620px;"> 
+                        <button class="btn btn-danger btn-large" onclick="editissue(true, '${'edit'+i}')"">edit</button> 
+                        <button class="btn btn-danger btn-large" onclick="saveEdits('${result[i].id}', '${'edit'+i}'); editissue(false, '${'edit'+i}');">save</button> 
+                        <button class="btn btn-danger btn-large" onclick="deleteObject('${result[i].id}')">delete</button>
+                        <button class="btn btn-danger btn-large" onclick="closeIssue('${result[i].id}'); editissue(false, '${'edit'+i}');">close</button> 
+                        </div>
+                    </div>
+                                  <hr/>
+                                    `
+                    commentSection.appendChild(content)
+                }
+            }
+        }
+
+
+
+
+        async function login() {
+            try {
+                currentUser = Moralis.User.current();
+                if (!currentUser) {
+                    currentUser = await Moralis.authenticate();
+                    checkUser();
+                }
+            } catch (error) {
+                console.log(error);
+            }
+        }
+
+        // Logout Function - log out a user with one line of code
+        async function logout() {
+            await Moralis.User.logOut();
+            checkUser();
+        }
+
+
+
+        // Register with username/password + check user
+        async function register() {
+
+            // Get the user credential
+            const _username = document.getElementById('username').value;
+            const _password = document.getElementById('password').value;
+
+            // Create a new user and set username and password attributes
+            const user = new Moralis.User();
+            user.set("username", _username);
+            user.set("password", _password);
+
+            // Sign them up with one line of code
+            try {
+                await user.signUp();
+            } catch (error) {
+                alert("Error: " + error.code + " " + error.message);
+            }
+            checkUser();
+        }
+
+        // Sign in with username/password + check user
+        async function userSignIn() {
+            const user = Moralis.User.current();
+            if (!user) {
+                const _username = document.getElementById('username').value;
+                const _password = document.getElementById('password').value;
+
+                // Log them in with one line of code
+                try {
+                    const user = await Moralis.User.logIn(_username, _password);
+                } catch (error) {
+                    alert("Error: " + error.code + " " + error.message);
+                }
+            } else alert('A user is already logged in');
+
+            checkUser();
+        }
+
+        // Check the user status and show/hide content depending on if they are logged in or not
+        function checkUser() {
+            runCode()
+            currentUser = Moralis.User.current();
+            if (currentUser) {
+                renderComments();
+                document.getElementById("login_button").style.display = "none";
+                document.getElementById("logout_button").style.display = "block";
+                document.getElementById("content").style.display = "block";
+                document.getElementById("login_buttons").style.display = "none";
+                document.getElementById("logged-in-user").innerText = `Logged in as: ${currentUser.get('username')}`
+
+            } else {
+                document.getElementById("logged-in-user").innerText = `Not logged in`
+                document.getElementById("login_button").style.display = "block";
+                document.getElementById("logout_button").style.display = "none";
+                document.getElementById("content").style.display = "none";
+                document.getElementById("login_buttons").style.display = "block";
+            }
+        }
+
+
+        //Functions for editing text
+
+        // function saveEditsLocally() {
+
+        //     //get the editable element
+        //     var editElem = document.getElementById("edit");
+
+        //     //get the edited element content
+        //     var userVersion = editElem.innerHTML;
+
+        //     //save the content to local storage
+        //     localStorage.userEdits = userVersion;
+
+        //     //write a confirmation to the user
+        //     document.getElementById("update").innerHTML="Edits saved!";
+
+        //     }
+
+        // Delets object by objectID in moralis database
+        async function saveEdits(ObjectId, editId) {
+
+            const Notes = Moralis.Object.extend("Note");
+            const query = new Moralis.Query(Notes);
+            query.equalTo("objectId", ObjectId);
+            const results = await query.find();
+            // Do something with the returned Moralis.Object values
+            for (let i = 0; i < results.length; i++) {
+                const object = results[i];
+
+                //Update Note conetent in database
+                object.set("content", document.getElementById(editId).innerText);
+                console.log(document.getElementById(editId).innerText);
+                console.log(document.getElementById(editId).innerText);
+                object.save();
+            }
+
+
+            }
+
+        // Delets object by objectID in moralis database
+        async function closeIssue(ObjectId) {
+
+            const Notes = Moralis.Object.extend("Note");
+            const query = new Moralis.Query(Notes);
+            query.equalTo("objectId", ObjectId);
+            const results = await query.find();
+            // Do something with the returned Moralis.Object values
+            for (let i = 0; i < results.length; i++) {
+                const object = results[i];
+
+                //Update Note conetent in database
+                object.set("status", "closed");
+                object.save();
+                renderComments();
+            }
+
+
+            }
+
+        function editissue(bool, editId) {
+
+            var editElem = document.getElementById(editId);
+            editElem.contentEditable=bool;
+            }
+
+        // document.getElementById("edit").addEventListener("input", function() {
+        //     saveEditsLocally();
+        // }, false);
+
+        //Functions for editing text
+
+
+
+        // Button connections
+        document.getElementById("login_button").onclick = login;
+        document.getElementById("logout_button").onclick = logout;
+        document.getElementById("login_button2").onclick = userSignIn;
+        document.getElementById("register_button").onclick = register;
+
+        // button.addEventListener("click", addListAfterClick);
+
+        checkUser();
+
+
+
+    </script>
+
+
+</body>
+
+</html>
